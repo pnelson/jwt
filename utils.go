@@ -30,7 +30,7 @@ func decode(b []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	return rv[0:n], nil
+	return rv[:n], nil
 }
 
 // encode returns a base64 padding-free URL-safe encoded byte array.
