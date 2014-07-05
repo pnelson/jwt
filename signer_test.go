@@ -5,18 +5,15 @@ import (
 	"testing"
 )
 
+var key = []byte("private")
+
 func TestHMACSigner(t *testing.T) {
 	var tests = []struct {
-		// in
 		in  []byte
-		key []byte
-
-		// out
 		out []byte
 	}{
 		{
 			[]byte("foo"),
-			[]byte("private"),
 			[]byte{
 				0x87, 0x5c, 0xb3, 0xc1, 0x8b, 0xa6, 0xb7, 0x55, 0x97, 0x24,
 				0xe6, 0x07, 0x3b, 0xd0, 0x81, 0x64, 0xe9, 0x0d, 0xea, 0x07,
@@ -26,7 +23,6 @@ func TestHMACSigner(t *testing.T) {
 		},
 		{
 			[]byte("bar"),
-			[]byte("private"),
 			[]byte{
 				0x65, 0xc8, 0x5b, 0x0d, 0xfd, 0x14, 0xf8, 0x65, 0x95, 0x3f,
 				0xde, 0x63, 0x38, 0xcb, 0xe7, 0xbd, 0xdc, 0x56, 0x29, 0x86,
@@ -36,7 +32,6 @@ func TestHMACSigner(t *testing.T) {
 		},
 		{
 			[]byte("baz"),
-			[]byte("private"),
 			[]byte{
 				0xcd, 0xbb, 0xdd, 0x4c, 0xe2, 0xf6, 0xbd, 0xfb, 0xf0, 0x10,
 				0x2a, 0xe0, 0x5a, 0x0c, 0xf4, 0xa2, 0xb9, 0x7a, 0x57, 0x48,
@@ -48,13 +43,13 @@ func TestHMACSigner(t *testing.T) {
 
 	signer := HMACSigner(sha256.New)
 	for i, tt := range tests {
-		out, err := signer.Sign(tt.in, tt.key)
+		out, err := signer.Sign(tt.in, key)
 		if err != nil {
 			t.Errorf("%d. Sign err\nhave %v\nwant %v", i, err, nil)
 			continue
 		}
 
-		err = signer.Verify(tt.in, tt.out, tt.key)
+		err = signer.Verify(tt.in, tt.out, key)
 		if err != nil {
 			t.Errorf("%d. Verify\nhave %v\n     % #010x\nwant %v", i, err, out, nil)
 		}
