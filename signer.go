@@ -10,7 +10,7 @@ import (
 
 var signers = make(map[string]Signer)
 
-var ErrInvalidSignature = errors.New("invalid signature")
+var ErrInvalidSignature = errors.New("notary: invalid signature")
 
 // Signer is the interface that signs and verifies data.
 type Signer interface {
