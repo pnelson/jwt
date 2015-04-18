@@ -1,3 +1,5 @@
+// Package notary implements tamper resistant message signing
+// and verification using JSON Web Tokens.
 package notary
 
 import (
