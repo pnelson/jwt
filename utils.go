@@ -12,7 +12,6 @@ func compare(x, y []byte) bool {
 	if len(x) != len(y) {
 		return false
 	}
-
 	return subtle.ConstantTimeCompare(x, y) == 1
 }
 
@@ -29,7 +28,6 @@ func decode(b []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return rv[:n], nil
 }
 
