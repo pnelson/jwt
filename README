@@ -36,4 +36,4 @@ parsed, err := notary.ParseWithKey(message, []byte("private-key"))
 License
 -------
 
-Copyright (c) 2014 by Philip Nelson. See LICENSE for details.
+Copyright (c) 2015 by Philip Nelson. See LICENSE for details.
