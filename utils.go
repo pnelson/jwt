@@ -9,9 +9,6 @@ import (
 // compare returns true if the two byte slices are equal while mitigating from
 // timing attacks by using an algorithm that doesn't expose timing information.
 func compare(x, y []byte) bool {
-	if len(x) != len(y) {
-		return false
-	}
 	return subtle.ConstantTimeCompare(x, y) == 1
 }
 
