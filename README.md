@@ -18,20 +18,20 @@ values. Notably, all JSON numbers are stored as float64.
 ```go
 token := notary.New("HS256")
 token.Claims["exp"] = time.Now().Add(time.Hour * 24).Unix()
-message, err := token.Sign([]byte("private-key"))
+message, err := token.Sign([]byte("secret"))
 ```
 
 ### Verify with Known Key
 
 ```go
-parsed, err := notary.ParseWithKey(message, []byte("private-key"))
+parsed, err := notary.ParseWithKey(message, []byte("secret"))
 ```
 
-### Verify with callback
+### Verify with Callback
 
 ```go
 parsed, err := notary.Parse(message, func(t *notary.Token) ([]byte, error) {
   // optionally find the key using header/claims of parsed token t
-  return []byte("private-key"), nil
+  return []byte("secret"), nil
 })
 ```
