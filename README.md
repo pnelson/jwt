@@ -1,5 +1,4 @@
-notary
-======
+# notary
 
 Package notary implements tamper resistant message signing and verification
 using JSON Web Tokens.
@@ -12,28 +11,27 @@ That said, be mindful of the way encoding/json unmarshals into interface{}
 values. Notably, all JSON numbers are stored as float64.
 
 
-Usage
------
+## Usage
 
-// sign
+### Sign
+
+```go
 token := notary.New("HS256")
 token.Claims["exp"] = time.Now().Add(time.Hour * 24).Unix()
 message, err := token.Sign([]byte("private-key"))
-...
+```
 
-// verify with callback
-parsed, err := notary.Parse(message, func(t *notary.Token) ([]byte, error) {
-    // optionally find the key using header/claims of parsed token t
-    return []byte("private-key"), nil
-})
-...
+### Verify with Known Key
 
-// verify with known key
+```go
 parsed, err := notary.ParseWithKey(message, []byte("private-key"))
-...
+```
 
+### Verify with callback
 
-License
--------
-
-Copyright (c) 2015 by Philip Nelson. See LICENSE for details.
+```go
+parsed, err := notary.Parse(message, func(t *notary.Token) ([]byte, error) {
+  // optionally find the key using header/claims of parsed token t
+  return []byte("private-key"), nil
+})
+```
