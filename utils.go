@@ -1,4 +1,4 @@
-package notary
+package jwt
 
 import (
 	"crypto/subtle"

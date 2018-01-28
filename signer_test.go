@@ -1,9 +1,6 @@
-package notary
+package jwt
 
-import (
-	"crypto/sha256"
-	"testing"
-)
+import "testing"
 
 var key = []byte("private")
 
@@ -40,16 +37,13 @@ func TestHMACSigner(t *testing.T) {
 			},
 		},
 	}
-
-	signer := HMACSigner(sha256.New)
 	for i, tt := range tests {
-		out, err := signer.Sign(tt.in, key)
+		out, err := HS256.Sign(tt.in, key)
 		if err != nil {
 			t.Errorf("%d. Sign err\nhave %v\nwant %v", i, err, nil)
 			continue
 		}
-
-		err = signer.Verify(tt.in, tt.out, key)
+		err = HS256.Verify(tt.in, tt.out, key)
 		if err != nil {
 			t.Errorf("%d. Verify\nhave %v\n     % #010x\nwant %v", i, err, out, nil)
 		}

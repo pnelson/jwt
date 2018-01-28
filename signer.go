@@ -1,14 +1,20 @@
-package notary
+package jwt
 
 import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/sha512"
 	"errors"
+	"fmt"
 	"hash"
 )
 
-var signers = make(map[string]Signer)
+// Signer implementations.
+var (
+	HS256 = hmacSigner{name: "HS256", hash: sha256.New}
+	HS384 = hmacSigner{name: "HS384", hash: sha512.New384}
+	HS512 = hmacSigner{name: "HS512", hash: sha512.New}
+)
 
 // Signer errors.
 var (
@@ -17,6 +23,9 @@ var (
 
 // Signer is the interface that signs and verifies data.
 type Signer interface {
+	// String is the algorithm name.
+	fmt.Stringer
+
 	// Sign returns the signature of the data.
 	Sign(b, key []byte) ([]byte, error)
 
@@ -24,28 +33,19 @@ type Signer interface {
 	Verify(b, signature, key []byte) error
 }
 
-// HMACSigner is a signer for the Hash interface.
-type HMACSigner func() hash.Hash
-
-// Register makes a signer available by the provided name.
-// Panics if called twice with the same name or the signer is nil.
-func Register(alg string, signer Signer) {
-	if signer == nil {
-		panic("notary: Register signer is nil")
-	}
-	if _, ok := signers[alg]; ok {
-		panic("notary: Register called twice for signer " + alg)
-	}
-	signers[alg] = signer
+// hmacSigner is a signer for the hash.Hash interface.
+type hmacSigner struct {
+	name string
+	hash func() hash.Hash
 }
 
 // Sign returns the signature of the data.
-func (s HMACSigner) Sign(b, key []byte) ([]byte, error) {
+func (s hmacSigner) Sign(b, key []byte) ([]byte, error) {
 	return s.digest(b, key)
 }
 
 // Verify returns an error if the signature is invalid.
-func (s HMACSigner) Verify(b, signature, key []byte) error {
+func (s hmacSigner) Verify(b, signature, key []byte) error {
 	digest, err := s.digest(b, key)
 	if err != nil {
 		return err
@@ -56,17 +56,16 @@ func (s HMACSigner) Verify(b, signature, key []byte) error {
 	return nil
 }
 
-func (s HMACSigner) digest(b, key []byte) ([]byte, error) {
-	h := hmac.New(s, key)
+// String implements the fmt.Stringer interface.
+func (s hmacSigner) String() string {
+	return s.name
+}
+
+func (s hmacSigner) digest(b, key []byte) ([]byte, error) {
+	h := hmac.New(s.hash, key)
 	_, err := h.Write(b)
 	if err != nil {
 		return nil, err
 	}
 	return h.Sum(nil), nil
-}
-
-func init() {
-	Register("HS256", HMACSigner(sha256.New))
-	Register("HS384", HMACSigner(sha512.New384))
-	Register("HS512", HMACSigner(sha512.New))
 }
