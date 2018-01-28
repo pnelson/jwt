@@ -18,7 +18,7 @@ var (
 
 // Signer errors.
 var (
-	ErrInvalidSignature = errors.New("notary: invalid signature")
+	ErrInvalidSignature = errors.New("jwt: invalid signature")
 )
 
 // Signer is the interface that signs and verifies data.
