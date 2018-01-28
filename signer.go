@@ -10,7 +10,10 @@ import (
 
 var signers = make(map[string]Signer)
 
-var ErrInvalidSignature = errors.New("notary: invalid signature")
+// Signer errors.
+var (
+	ErrInvalidSignature = errors.New("notary: invalid signature")
+)
 
 // Signer is the interface that signs and verifies data.
 type Signer interface {
@@ -30,11 +33,9 @@ func Register(alg string, signer Signer) {
 	if signer == nil {
 		panic("notary: Register signer is nil")
 	}
-
 	if _, ok := signers[alg]; ok {
 		panic("notary: Register called twice for signer " + alg)
 	}
-
 	signers[alg] = signer
 }
 
@@ -49,11 +50,9 @@ func (s HMACSigner) Verify(b, signature, key []byte) error {
 	if err != nil {
 		return err
 	}
-
 	if !compare(signature, digest) {
 		return ErrInvalidSignature
 	}
-
 	return nil
 }
 
@@ -63,7 +62,6 @@ func (s HMACSigner) digest(b, key []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return h.Sum(nil), nil
 }
 

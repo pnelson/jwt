@@ -3,9 +3,9 @@
 package notary
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -15,8 +15,9 @@ type Token struct {
 	Claims map[string]interface{}
 }
 
-var sep = []byte(".")
+var sep = "."
 
+// Token errors.
 var (
 	ErrMalformed      = errors.New("notary: incorrect token string format")
 	ErrHeaderTyp      = errors.New("notary: header does not contain valid typ")
@@ -37,144 +38,101 @@ func New(alg string) *Token {
 	}
 }
 
-// Token returns the signed token by serializing the provided header and claims
+// Sign returns the signed token by serializing the provided header and claims
 // to JSON and calculating the signature with the configured Signer.
 func (t *Token) Sign(key []byte) (string, error) {
-	// Encode the header.
 	h, err := json.Marshal(t.Header)
 	if err != nil {
 		return "", err
 	}
-
-	// Encode the claims.
 	c, err := json.Marshal(t.Claims)
 	if err != nil {
 		return "", err
 	}
-
-	// Build the signing string.
-	base := new(bytes.Buffer)
-	base.Write(encode(h))
-	base.WriteByte('.')
-	base.Write(encode(c))
-
-	// Determine the algorithm to use.
+	token := encode(h) + sep + encode(c)
 	alg, ok := t.Header["alg"].(string)
 	if !ok {
 		return "", ErrHeaderAlg
 	}
-
-	// Find the registered Signer for the token alg header.
 	signer, ok := signers[alg]
 	if !ok {
 		return "", ErrSignerAlg
 	}
-
-	// Calculate the signature.
-	signature, err := signer.Sign(base.Bytes(), key)
+	signature, err := signer.Sign([]byte(token), key)
 	if err != nil {
 		return "", err
 	}
-
-	// Complete the token.
-	base.WriteByte('.')
-	base.Write(encode(signature))
-
-	return base.String(), nil
+	token += sep + encode(signature)
+	return token, nil
 }
 
 // Parse validates the provided message.
-func Parse(message string, callback func(t *Token) ([]byte, error)) (*Token, error) {
-	token := &Token{}
-
-	// Split the message into header, claims, and signature parts.
-	parts := bytes.Split([]byte(message), sep)
+func Parse(jwt string, callback func(*Token) ([]byte, error)) (*Token, error) {
+	t := &Token{}
+	parts := strings.Split(jwt, sep)
 	if len(parts) != 3 {
 		return nil, ErrMalformed
 	}
-
-	// Decode the header.
 	h, err := decode(parts[0])
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse the header.
-	err = json.Unmarshal(h, &token.Header)
+	err = json.Unmarshal(h, &t.Header)
 	if err != nil {
 		return nil, err
 	}
-
-	// Validate the header.
-	typ, ok := token.Header["typ"].(string)
+	typ, ok := t.Header["typ"].(string)
 	if !ok || typ != "JWT" {
 		return nil, ErrHeaderTyp
 	}
-
-	// Determine the algorithm to use.
-	alg, ok := token.Header["alg"].(string)
+	alg, ok := t.Header["alg"].(string)
 	if !ok {
 		return nil, ErrHeaderAlg
 	}
-
-	// Find the registered Signer for the token alg header.
 	signer, ok := signers[alg]
 	if !ok {
 		return nil, ErrSignerAlg
 	}
-
-	// Callback to retrieve the key.
-	key, err := callback(token)
+	key, err := callback(t)
 	if err != nil {
 		return nil, err
 	}
-
-	// Prepare to verify the signature.
-	base := bytes.Join(parts[0:2], sep)
+	base := strings.Join(parts[:2], sep)
 	signature, err := decode(parts[2])
 	if err != nil {
 		return nil, err
 	}
-
-	// Verify the signature.
-	err = signer.Verify(base, signature, key)
+	err = signer.Verify([]byte(base), signature, key)
 	if err != nil {
 		return nil, err
 	}
-
-	// Decode the claims.
 	c, err := decode(parts[1])
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse the claims.
-	err = json.Unmarshal(c, &token.Claims)
+	err = json.Unmarshal(c, &t.Claims)
 	if err != nil {
 		return nil, err
 	}
-
-	// Verify the claims.
 	now := time.Now().Unix()
-	if exp, ok := token.Claims["exp"].(float64); ok {
+	if exp, ok := t.Claims["exp"].(float64); ok {
 		if now > int64(exp) {
 			return nil, ErrClaimExpired
 		}
 	}
-	if nbf, ok := token.Claims["nbf"].(float64); ok {
+	if nbf, ok := t.Claims["nbf"].(float64); ok {
 		if now < int64(nbf) {
 			return nil, ErrClaimNotBefore
 		}
 	}
-
-	return token, nil
+	return t, nil
 }
 
-// ParseWithKey validates the provided message using the provided key.
+// ParseWithKey validates the provided jwt using the provided key.
 // This is a shortcut for Parse in cases where the token doesn't need
 // to be parsed to figure out the full key.
-func ParseWithKey(message string, key []byte) (*Token, error) {
-	return Parse(message, func(t *Token) ([]byte, error) {
+func ParseWithKey(jwt string, key []byte) (*Token, error) {
+	return Parse(jwt, func(*Token) ([]byte, error) {
 		return key, nil
 	})
 }
