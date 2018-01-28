@@ -6,7 +6,7 @@ using JSON Web Tokens.
 Besides validating the signature, jwt will also check for the existence
 of `exp` and `nbf` claims, and validate as necessary.
 
-The header and claims maps are of type `map[string]interface{}`, unfortunately.
+The header and claims maps are of type `map[string]interface{}`.
 That said, be mindful of the way `encoding/json` unmarshals into interface{}
 values. Notably, all JSON numbers are stored as `float64`.
 
@@ -16,9 +16,9 @@ values. Notably, all JSON numbers are stored as `float64`.
 ### Sign
 
 ```go
-t := new(jwt.Token)
-t.Claims["exp"] = time.Now().Add(time.Hour * 24).Unix()
-token, err := t.Sign(jwt.HS256, []byte("secret"))
+t := jwt.New(jwt.HS256)
+t.Claims["exp"] = time.Now().Add(24 * time.Hour).Unix()
+token, err := t.Sign([]byte("secret"))
 ```
 
 ### Verify with Known Key

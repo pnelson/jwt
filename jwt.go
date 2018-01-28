@@ -13,6 +13,7 @@ var sep = "."
 
 // Token errors.
 var (
+	ErrSigner         = errors.New("jwt: invalid signer")
 	ErrMalformed      = errors.New("jwt: incorrect token string format")
 	ErrHeaderTyp      = errors.New("jwt: header does not contain valid typ")
 	ErrHeaderAlg      = errors.New("jwt: header does not contain valid alg")
@@ -24,16 +25,30 @@ var (
 type Token struct {
 	Header map[string]interface{}
 	Claims map[string]interface{}
+	signer Signer
+}
+
+// New returns a new token.
+func New(s Signer) *Token {
+	return &Token{
+		Header: make(map[string]interface{}),
+		Claims: make(map[string]interface{}),
+		signer: s,
+	}
 }
 
 // Sign returns the signed token by serializing the token
-// header and claims to JSON and using s to calculate the signature.
-func (t *Token) Sign(s Signer, key []byte) (string, error) {
+// header and claims to JSON and using the configured signer
+// to calculate the signature.
+func (t *Token) Sign(key []byte) (string, error) {
+	if t.signer == nil {
+		return "", ErrSigner
+	}
 	if t.Header == nil {
 		t.Header = make(map[string]interface{})
 	}
 	t.Header["typ"] = "JWT"
-	t.Header["alg"] = s.String()
+	t.Header["alg"] = t.signer.String()
 	h, err := json.Marshal(t.Header)
 	if err != nil {
 		return "", err
@@ -46,7 +61,7 @@ func (t *Token) Sign(s Signer, key []byte) (string, error) {
 		return "", err
 	}
 	jwt := encode(h) + sep + encode(c)
-	sig, err := s.Sign([]byte(jwt), key)
+	sig, err := t.signer.Sign([]byte(jwt), key)
 	if err != nil {
 		return "", err
 	}
@@ -67,7 +82,7 @@ func Parse(s Signer, jwt string, key []byte) (*Token, error) {
 // This can be used in cases where the token header needs to be parsed
 // to determine the full key.
 func ParseWithKeyFunc(s Signer, jwt string, keyFn func(*Token) ([]byte, error)) (*Token, error) {
-	t := &Token{}
+	t := &Token{signer: s}
 	parts := strings.Split(jwt, sep)
 	if len(parts) != 3 {
 		return nil, ErrMalformed

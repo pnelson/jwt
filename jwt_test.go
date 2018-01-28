@@ -25,15 +25,15 @@ func TestToken(t *testing.T) {
 			// simple
 			map[string]interface{}{"foo": "bar"},
 			HS256,
-			[]byte("private"),
-			"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmb28iOiJiYXIifQ.pDG5DGe90Z3718jJSfSRDVVbr__V3MLCx92x8r51t3E",
+			[]byte("secret"),
+			"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmb28iOiJiYXIifQ.dtxWM6MIcgoeMgH87tGvsNDY6cHWL6MGW4LeYvnm1JA",
 			nil,
 		},
 		{
 			// exp
 			map[string]interface{}{"exp": expired},
 			HS256,
-			[]byte("private"),
+			[]byte("secret"),
 			"",
 			ErrClaimExpired,
 		},
@@ -41,14 +41,15 @@ func TestToken(t *testing.T) {
 			// nbf
 			map[string]interface{}{"nbf": notBefore},
 			HS256,
-			[]byte("private"),
+			[]byte("secret"),
 			"",
 			ErrClaimNotBefore,
 		},
 	}
 	for i, tt := range tests {
-		token := &Token{Claims: tt.claims}
-		jwt, err := token.Sign(tt.signer, tt.key)
+		token := New(tt.signer)
+		token.Claims = tt.claims
+		jwt, err := token.Sign(tt.key)
 		if err != nil {
 			t.Errorf("%d. Sign err\nhave %v\nwant %v", i, err, nil)
 			continue
@@ -65,5 +66,13 @@ func TestToken(t *testing.T) {
 		if tt.err == nil && !reflect.DeepEqual(parsed.Claims, tt.claims) {
 			t.Errorf("%d. Parse claims\nhave %v\nwant %v", i, parsed.Claims, tt.claims)
 		}
+	}
+}
+
+func TestSignNone(t *testing.T) {
+	token := New(nil)
+	_, err := token.Sign([]byte("secret"))
+	if err != ErrSigner {
+		t.Errorf("should return signer error")
 	}
 }
