@@ -1,6 +1,7 @@
 package jwt
 
 import (
+	"crypto"
 	"crypto/subtle"
 	"encoding/base64"
 )
@@ -25,4 +26,17 @@ func decode(s string) ([]byte, error) {
 // See RFC 4648 Section 3.2.
 func encode(b []byte) string {
 	return b64.EncodeToString(b)
+}
+
+// hash returns the result of applying the hash function on b.
+func hash(hash crypto.Hash, b []byte) ([]byte, error) {
+	if !hash.Available() {
+		return nil, ErrHashUnavailable
+	}
+	h := hash.New()
+	_, err := h.Write(b)
+	if err != nil {
+		return nil, err
+	}
+	return h.Sum(nil), nil
 }

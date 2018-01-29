@@ -1,51 +1,138 @@
 package jwt
 
-import "testing"
+import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
+	"testing"
 
-var key = []byte("private")
+	_ "crypto/sha256"
+)
 
 func TestHMACSigner(t *testing.T) {
-	var tests = []struct {
-		in  []byte
-		out []byte
-	}{
-		{
-			[]byte("foo"),
-			[]byte{
-				0x87, 0x5c, 0xb3, 0xc1, 0x8b, 0xa6, 0xb7, 0x55, 0x97, 0x24,
-				0xe6, 0x07, 0x3b, 0xd0, 0x81, 0x64, 0xe9, 0x0d, 0xea, 0x07,
-				0x6d, 0xa0, 0x24, 0x32, 0xed, 0x4e, 0xd6, 0x2a, 0x9c, 0x44,
-				0x94, 0xdb,
-			},
-		},
-		{
-			[]byte("bar"),
-			[]byte{
-				0x65, 0xc8, 0x5b, 0x0d, 0xfd, 0x14, 0xf8, 0x65, 0x95, 0x3f,
-				0xde, 0x63, 0x38, 0xcb, 0xe7, 0xbd, 0xdc, 0x56, 0x29, 0x86,
-				0xe0, 0xe6, 0x43, 0xe0, 0x5d, 0x93, 0x18, 0xff, 0x2c, 0xa2,
-				0xce, 0x99,
-			},
-		},
-		{
-			[]byte("baz"),
-			[]byte{
-				0xcd, 0xbb, 0xdd, 0x4c, 0xe2, 0xf6, 0xbd, 0xfb, 0xf0, 0x10,
-				0x2a, 0xe0, 0x5a, 0x0c, 0xf4, 0xa2, 0xb9, 0x7a, 0x57, 0x48,
-				0x38, 0x02, 0x33, 0x23, 0x87, 0x9d, 0x74, 0x73, 0xa4, 0x05,
-				0x9d, 0x9c,
-			},
-		},
+	b := []byte("foo")
+	key := []byte("secret")
+	sig, err := HS256.Sign(b, key)
+	if err != nil {
+		t.Fatal(err)
 	}
-	for i, tt := range tests {
-		out, err := HS256.Sign(tt.in, key)
-		if err != nil {
-			t.Errorf("%d. Sign err\nhave %v\nwant %v", i, err, nil)
-			continue
-		}
-		err = HS256.Verify(tt.in, tt.out, key)
-		if err != nil {
-			t.Errorf("%d. Verify\nhave %v\n     % #010x\nwant %v", i, err, out, nil)
-		}
+	err = HS256.Verify(b, sig, key)
+	if err != nil {
+		t.Fatal(err)
 	}
+	sig[0] ^= 0xFF
+	err = HS256.Verify(b, sig, key)
+	if err != ErrInvalidSignature {
+		t.Fatal("should be invalid")
+	}
+}
+
+func TestRSASigner(t *testing.T) {
+	b := []byte("foo")
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	publicKey, privateKey, err := encodeRSA(priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sig, err := RS256.Sign(b, privateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = RS256.Verify(b, sig, publicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sig[0] ^= 0xFF
+	err = RS256.Verify(b, sig, publicKey)
+	if err != ErrInvalidSignature {
+		t.Fatal("should be invalid")
+	}
+}
+
+func TestECDSASigner(t *testing.T) {
+	b := []byte("foo")
+	curve := elliptic.P256()
+	priv, err := ecdsa.GenerateKey(curve, rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	publicKey, privateKey, err := encodeECDSA(priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sig, err := ES256.Sign(b, privateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = ES256.Verify(b, sig, publicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sig[0] ^= 0xFF
+	err = ES256.Verify(b, sig, publicKey)
+	if err != ErrInvalidSignature {
+		t.Fatal("should be invalid")
+	}
+}
+
+// encodeRSA encodes a RSA private key to PEM-formatted
+// public and private keys.
+func encodeRSA(priv *rsa.PrivateKey) ([]byte, []byte, error) {
+	publicKey, err := encodePublicKey(&priv.PublicKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	privateKey := encodeRSAPrivateKey(priv)
+	return publicKey, privateKey, nil
+}
+
+// encodeECDSA encodes a ECDSA private key to PEM-formatted
+// public and private keys.
+func encodeECDSA(priv *ecdsa.PrivateKey) ([]byte, []byte, error) {
+	publicKey, err := encodePublicKey(&priv.PublicKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	privateKey, err := encodeECDSAPrivateKey(priv)
+	if err != nil {
+		return nil, nil, err
+	}
+	return publicKey, privateKey, nil
+}
+
+// encodePublicKey encodes a RSA or ECDSA public key to PEM format.
+func encodePublicKey(pub interface{}) ([]byte, error) {
+	der, err := x509.MarshalPKIXPublicKey(pub)
+	if err != nil {
+		return nil, err
+	}
+	block := &pem.Block{Type: "PUBLIC KEY", Bytes: der}
+	return pem.EncodeToMemory(block), nil
+}
+
+// encodeRSAPrivateKey encodes a RSA private key to PEM format.
+func encodeRSAPrivateKey(priv *rsa.PrivateKey) []byte {
+	der := x509.MarshalPKCS1PrivateKey(priv)
+	return encodePrivateKey("RSA", der)
+}
+
+// encodeECDSAPrivateKey encodes a ECDSA private key to PEM format.
+func encodeECDSAPrivateKey(priv *ecdsa.PrivateKey) ([]byte, error) {
+	der, err := x509.MarshalECPrivateKey(priv)
+	if err != nil {
+		return nil, err
+	}
+	return encodePrivateKey("EC", der), nil
+}
+
+// encodePrivateKey encodes a private key to PEM format.
+func encodePrivateKey(kind string, der []byte) []byte {
+	block := &pem.Block{Type: kind + " PRIVATE KEY", Bytes: der}
+	return pem.EncodeToMemory(block)
 }
