@@ -29,7 +29,7 @@ var (
 	// ECDSA
 	ES256 = NewECDSASigner("ES256", crypto.SHA256)
 	ES384 = NewECDSASigner("ES384", crypto.SHA384)
-	ES512 = NewECDSASigner("ES256", crypto.SHA512)
+	ES512 = NewECDSASigner("ES512", crypto.SHA512)
 )
 
 // Signer errors.
